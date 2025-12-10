@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Neon Racer – Endless</title>
+<style>
+  :root{
+    --bg0:#050509;
+    --bg1:#0b0d1a;
+    --panel:rgba(16,18,30,.85);
+    --panel-soft:rgba(16,18,30,.65);
+    --line:rgba(255,255,255,.14);
+    --text:#ecf3ff;
+    --muted:#9aa6d0;
+    --cyan:#00eaff;
+    --pink:#ff2b6a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    height:100vh;
+    background:radial-gradient(900px 600px at 50% 0,#191d3a 0%,var(--bg1) 40%,var(--bg0) 100%);
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--text);
+  }
+  #shell{
+    width:min(440px,96vw);
+    height:min(740px,96vh);
+    border-radius:20px;
+    overflow:hidden;
+    position:relative;
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:0 14px 60px rgba(0,0,0,.6);
+    background:#000;
+  }
+  canvas{
+    width:100%;
+    height:100%;
+    display:block;
+    background:linear-gradient(#111624,#05050b);
+  }
+  .hud{
+    position:absolute;inset:0 0 auto 0;
+    padding:10px 12px;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    pointer-events:none;
+  }
+  .pill{
+    pointer-events:auto;
+    background:var(--panel-soft);
+    border-radius:999px;
+    border:1px solid var(--line);
+    padding:8px 12px;
+    display:flex;align-items:center;gap:8px;
+    backdrop-filter:blur(10px);
+    font-variant-numeric:tabular-nums;
+  }
+  .pill .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+  .pill .value{font-weight:900;font-size:16px}
+  #modeName{font-size:12px}
+  .btn-mini{
+    pointer-events:auto;
+    cursor:pointer;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:rgba(0,0,0,.3);
+    color:var(--text);
+    padding:7px 11px;
+    font-size:13px;
+    font-weight:800;
+    user-select:none;
+  }
+  .btn-mini:hover{background:rgba(255,255,255,.06)}
+  /* Overlay */
+  #overlay{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(800px 500px at 50% 25%,rgba(0,0,0,.2) 0,rgba(0,0,0,.75) 60%,rgba(0,0,0,.9) 100%);
+  }
+  #overlay.hidden{display:none}
+  .card{
+    width:min(380px,92%);
+    background:var(--panel);
+    border-radius:18px;
+    border:1px solid var(--line);
+    box-shadow:0 10px 40px rgba(0,0,0,.75);
+    padding:14px;
+  }
+  h1{
+    font-size:24px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    margin-bottom:4px;
+  }
+  .tagline{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .modes{display:flex;flex-direction:column;gap:8px;margin:8px 0 10px}
+  .mode{
+    border-radius:14px;
+    border:1px solid var(--line);
+    background:rgba(0,0,0,.35);
+    padding:8px 10px;
+    display:flex;justify-content:space-between;align-items:center;
+    cursor:pointer;
+  }
+  .mode.active{border-color:var(--cyan);box-shadow:0 0 18px rgba(0,234,255,.35);}
+  .mode-left{max-width:70%}
+  .mode-name{font-weight:900;font-size:14px}
+  .mode-desc{font-size:11px;color:var(--muted);margin-top:2px}
+  .mode-right{text-align:right;font-variant-numeric:tabular-nums}
+  .mode-best-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .mode-best-val{font-weight:900;font-size:13px}
+  .row-buttons{display:flex;gap:8px;margin-top:10px}
+  .btn{
+    flex:1;
+    cursor:pointer;
+    border-radius:999px;
+    border:none;
+    padding:9px 10px;
+    font-weight:900;
+    font-size:14px;
+    background:var(--cyan);
+    color:#001015;
+  }
+  .btn.secondary{background:#22263c;color:var(--text);border:1px solid var(--line);}
+  .info-small{margin-top:6px;font-size:11px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div id="shell">
+  <canvas id="game" width="440" height="740"></canvas>
+
+  <div class="hud">
+    <div class="pill">
+      <div>
+        <div class="label">Score</div>
+        <div class="value" id="score">0</div>
+      </div>
+      <div style="width:1px;height:24px;background:rgba(255,255,255,.18);margin:0 6px"></div>
+      <div>
+        <div class="label">Best</div>
+        <div class="value" id="best">0</div>
+      </div>
+      <div style="width:1px;height:24px;background:rgba(255,255,255,.18);margin:0 6px"></div>
+      <div>
+        <div class="label">Mode</div>
+        <div class="value" id="modeName">Casual</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div class="pill">
+        <div>
+          <div class="label">Speed</div>
+          <div class="value"><span id="mph">25</span> MPH</div>
+        </div>
+      </div>
+      <button class="btn-mini" id="pauseBtn" title="Pause (P)">Pause</button>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div class="card">
+      <h1 id="ovTitle">NEON RACER</h1>
+      <div class="tagline" id="ovSub">
+        4 şerit, adil trafik, sonsuz oynanış.<br>
+        Kontrol: <b>A/D</b> veya <b>← / →</b>
+      </div>
+      <div class="modes" id="modeList"></div>
+
+      <div class="row-buttons">
+        <button class="btn" id="playBtn">Play</button>
+        <button class="btn secondary" id="resetBtn">Reset Best</button>
+      </div>
+
+      <div class="info-small" id="ovInfo">
+        Şerit değişimi hızlı + tuşa basılı tutunca ardışık şerit değişir.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  const scoreEl   = document.getElementById('score');
+  const bestEl    = document.getElementById('best');
+  const mphEl     = document.getElementById('mph');
+  const modeNameEl= document.getElementById('modeName');
+
+  const overlay   = document.getElementById('overlay');
+  const ovTitle   = document.getElementById('ovTitle');
+  const ovSub     = document.getElementById('ovSub');
+  const ovInfo    = document.getElementById('ovInfo');
+  const modeList  = document.getElementById('modeList');
+
+  const playBtn   = document.getElementById('playBtn');
+  const resetBtn  = document.getElementById('resetBtn');
+  const pauseBtn  = document.getElementById('pauseBtn');
+
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+
+  // ===== MODES (Casual slower; old casual ramp is Hardcore) =====
+  const MODES = [
+    { id:'casual',   name:'Casual',   desc:'Çok yavaş hızlanır. Rahat, uzun süre oynanır.', baseSpeed:2.6, speedRamp:0.006, maxSpeed:8.0,  gap:360 },
+    { id:'normal',   name:'Normal',   desc:'Orta tempo. Hız artışı dengeli.',               baseSpeed:3.0, speedRamp:0.012, maxSpeed:9.5,  gap:320 },
+    { id:'hardcore', name:'Hardcore', desc:'Eski Casual ramp. Daha agresif ama adil.',      baseSpeed:3.4, speedRamp:0.020, maxSpeed:11.0, gap:280 },
+  ];
+  let mode = MODES[0];
+
+  function bestKey(m){ return 'neon_racer_best_'+m.id; }
+  function getBest(m){ const v = localStorage.getItem(bestKey(m)); return v?parseInt(v,10):0; }
+  function setBest(m,v){ localStorage.setItem(bestKey(m), String(v|0)); }
+
+  function renderModes(){
+    modeList.innerHTML = '';
+    MODES.forEach(m=>{
+      const div = document.createElement('div');
+      div.className = 'mode' + (m.id===mode.id ? ' active' : '');
+      const best = getBest(m);
+      div.innerHTML = `
+        <div class="mode-left">
+          <div class="mode-name">${m.name}</div>
+          <div class="mode-desc">${m.desc}</div>
+        </div>
+        <div class="mode-right">
+          <div class="mode-best-label">Best</div>
+          <div class="mode-best-val">${best}</div>
+        </div>
+      `;
+      div.addEventListener('click', function(){
+        mode = m;
+        modeNameEl.textContent = mode.name;
+        bestEl.textContent = getBest(mode);
+        renderModes();
+      });
+      modeList.appendChild(div);
+    });
+  }
+
+  const ROAD = { x:30, y:0, w:380, h:740 };
+  const LANES = 4;
+  const LANE_W = ROAD.w / LANES;
+  function laneCenter(i){ return ROAD.x + LANE_W*(i+0.5); }
+
+  let state = 'menu'; // menu | playing | paused | over
+  let score = 0;
+  let speed = 0;
+  let mph   = 25;
+
+  const player = {
+    lane:1,
+    x: laneCenter(1),
+    tx: laneCenter(1),
+    y: 560,
+    w: 52,
+    h: 90
+  };
+
+  // ===== Lane change improvements =====
+  // 1) Faster lane snap (bigger = faster)
+  const LANE_SNAP_RATE = 28; // per second (was slow-ish with pow)
+  // 2) Allow holding / rapid multi-lane changes with cooldown
+  let laneHoldDir = 0;          // -1 or +1 when key held
+  let laneCooldown = 0;         // seconds
+  const LANE_STEP_COOLDOWN = 0.11; // 110ms between lane steps when holding/rapid taps
+
+  // Fairness: prevent swapping into immediate obstacle
+  const LANE_DANGER_AHEAD = 120; // slightly smaller to feel more responsive than 140
+
+  let roadLines = [];
+  let rows = [];      // {y, blocked:[lane,lane], counted:false}
+  let particles = [];
+  let blockStreak = 0;
+
+  function resetGame(){
+    score = 0;
+    scoreEl.textContent = '0';
+    speed = mode.baseSpeed;
+    mph   = 25;
+    mphEl.textContent = '25';
+    modeNameEl.textContent = mode.name;
+
+    player.lane = 1;
+    player.x = laneCenter(1);
+    player.tx = player.x;
+
+    roadLines = [];
+    for(let i=0;i<8;i++) roadLines.push({y:i*90});
+
+    rows = [];
+    particles = [];
+    blockStreak = 0;
+
+    laneHoldDir = 0;
+    laneCooldown = 0;
+
+    spawnRow();
+    spawnRow();
+
+    bestEl.textContent = getBest(mode);
+  }
+
+  function spawnRow(){
+    const lanes = [0,1,2,3];
+    lanes.sort(()=>Math.random()-0.5);
+
+    let blocked = lanes.slice(0,2); // always max 2 blocked => min 2 open
+
+    if(blocked.indexOf(player.lane)!==-1) blockStreak++; else blockStreak=0;
+    if(blockStreak>=3){
+      blocked = blocked.filter(l=>l!==player.lane);
+      const remaining = [0,1,2,3].filter(l=>blocked.indexOf(l)===-1 && l!==player.lane);
+      if(remaining.length>0) blocked.push(remaining[0]);
+      blockStreak = 0;
+    }
+
+    rows.push({y:-120, blocked:blocked, counted:false});
+  }
+
+  function laneHasDanger(targetLane){
+    const aheadMin = player.y - LANE_DANGER_AHEAD;
+    const aheadMax = player.y + 20;
+    for(const row of rows){
+      if(row.blocked.indexOf(targetLane)!==-1){
+        const oy = row.y;
+        if(oy+player.h>aheadMin && oy<aheadMax) return true;
+      }
+    }
+    return false;
+  }
+
+  function tryChangeLane(dir){
+    if(state!=='playing') return false;
+    const newLane = clamp(player.lane + dir, 0, LANES-1);
+    if(newLane===player.lane) return false;
+    if(laneHasDanger(newLane)) return false; // fairness guard
+    player.lane = newLane;
+    player.tx   = laneCenter(newLane);
+    return true;
+  }
+
+  function hit(ax,ay,aw,ah,bx,by,bw,bh){
+    const pad = 6;
+    return (ax+pad < bx+bw-pad && ax+aw-pad > bx+pad && ay+pad < by+bh-pad && ay+ah-pad > by+pad);
+  }
+
+  function spawnExplosion(x,y){
+    for(let i=0;i<35;i++){
+      particles.push({
+        x, y,
+        vx:(Math.random()-0.5)*240,
+        vy:(Math.random()-0.5)*240,
+        life:0.6+Math.random()*0.3
+      });
+    }
+  }
+
+  function startGame(){
+    resetGame();
+    state='playing';
+    overlay.classList.add('hidden');
+  }
+
+  function pauseGame(){
+    if(state==='playing'){
+      state='paused';
+      ovTitle.textContent = 'PAUSED';
+      ovSub.innerHTML = 'Devam etmek için <b>Play</b> veya <b>P</b> tuşu.';
+      overlay.classList.remove('hidden');
+    }else if(state==='paused'){
+      state='playing';
+      overlay.classList.add('hidden');
+    }
+  }
+
+  function gameOver(){
+    state='over';
+    const finalScore = Math.floor(score);
+    const currentBest = getBest(mode);
+    if(finalScore>currentBest) setBest(mode, finalScore);
+
+    bestEl.textContent = getBest(mode);
+    renderModes();
+
+    ovTitle.textContent = 'CRASHED!';
+    ovSub.innerHTML = 'Skor: <b>'+finalScore+'</b> • En iyi ('+mode.name+'): <b>'+getBest(mode)+'</b><br>Tekrar oynamak için Play.';
+    overlay.classList.remove('hidden');
+  }
+
+  // ===== INPUT (supports hold + rapid multi-lane) =====
+  window.addEventListener('keydown', function(e){
+    const k = e.key;
+
+    if(k==='ArrowLeft' || k==='a' || k==='A'){
+      laneHoldDir = -1;
+      // Allow repeats but throttle via cooldown
+      if(laneCooldown<=0){
+        if(tryChangeLane(-1)) laneCooldown = LANE_STEP_COOLDOWN;
+      }
+      e.preventDefault();
+    }
+
+    if(k==='ArrowRight'|| k==='d' || k==='D'){
+      laneHoldDir = 1;
+      if(laneCooldown<=0){
+        if(tryChangeLane(1)) laneCooldown = LANE_STEP_COOLDOWN;
+      }
+      e.preventDefault();
+    }
+
+    if(k==='p' || k==='P'){ pauseGame(); e.preventDefault(); }
+    if(k==='Enter' || k===' '){
+      if(state==='menu' || state==='over'){ startGame(); }
+      else if(state==='paused'){ pauseGame(); }
+      e.preventDefault();
+    }
+  }, {passive:false});
+
+  window.addEventListener('keyup', function(e){
+    const k = e.key;
+    if(k==='ArrowLeft' || k==='a' || k==='A'){
+      if(laneHoldDir === -1) laneHoldDir = 0;
+    }
+    if(k==='ArrowRight'|| k==='d' || k==='D'){
+      if(laneHoldDir === 1) laneHoldDir = 0;
+    }
+  });
+
+  playBtn.addEventListener('click', function(){
+    if(state==='menu' || state==='over'){ startGame(); }
+    else if(state==='paused'){ pauseGame(); }
+  });
+
+  pauseBtn.addEventListener('click', function(){
+    if(state==='playing' || state==='paused'){ pauseGame(); }
+  });
+
+  resetBtn.addEventListener('click', function(){
+    setBest(mode,0);
+    bestEl.textContent = '0';
+    renderModes();
+  });
+
+  let lastTime = performance.now();
+  function loop(now){
+    const dt = Math.min(0.033, (now-lastTime)/1000);
+    lastTime = now;
+
+    if(state==='playing') update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function update(dt){
+    // lane step cooldown for held keys
+    if(laneCooldown > 0) laneCooldown -= dt;
+
+    // If holding key, keep stepping lanes at cooldown rate
+    if(laneHoldDir !== 0 && laneCooldown <= 0){
+      const moved = tryChangeLane(laneHoldDir);
+      // Even if blocked, add a tiny cooldown so it doesn't spam
+      laneCooldown = moved ? LANE_STEP_COOLDOWN : 0.06;
+    }
+
+    // ONLY SPEED INCREASES
+    speed += mode.speedRamp * (dt*60);
+    if(speed>mode.maxSpeed) speed = mode.maxSpeed;
+
+    mph = Math.floor(25 + (speed - mode.baseSpeed)*18);
+    if(mph<0) mph=0;
+    mphEl.textContent = String(mph);
+
+    // Faster lane snap using exponential smoothing
+    const t = 1 - Math.exp(-LANE_SNAP_RATE * dt);
+    player.x = lerp(player.x, player.tx, t);
+
+    const vy = speed*110;
+
+    for(const l of roadLines){
+      l.y += vy*dt;
+      if(l.y>ROAD.h+80) l.y -= 90*roadLines.length;
+    }
+
+    for(const r of rows){
+      r.y += vy*dt;
+    }
+
+    if(rows.length){
+      const last = rows[rows.length-1];
+      if(last.y >= -120 + mode.gap) spawnRow();
+    }
+
+    while(rows.length && rows[0].y > ROAD.h + 200){
+      rows.shift();
+    }
+
+    score += dt * 10;
+    for(const r of rows){
+      if(!r.counted && r.y > player.y+player.h){
+        r.counted = true;
+        score += 5;
+      }
+    }
+    scoreEl.textContent = String(Math.floor(score));
+
+    const px = player.x - player.w/2;
+    const py = player.y;
+
+    for(const r of rows){
+      for(const lane of r.blocked){
+        const ox = laneCenter(lane) - player.w/2;
+        const oy = r.y;
+        if(hit(px,py,player.w,player.h, ox,oy,player.w,player.h)){
+          spawnExplosion(player.x, player.y+player.h/2);
+          gameOver();
+          return;
+        }
+      }
+    }
+
+    for(const p of particles){
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.vx *= Math.pow(0.9, dt*60);
+      p.vy *= Math.pow(0.9, dt*60);
+      p.life -= dt;
+    }
+    particles = particles.filter(p=>p.life>0);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    const g = ctx.createLinearGradient(0,0,0,ROAD.h);
+    g.addColorStop(0,'#141624');
+    g.addColorStop(1,'#050509');
+    ctx.fillStyle = g;
+    ctx.fillRect(ROAD.x, ROAD.y, ROAD.w, ROAD.h);
+
+    ctx.fillStyle = 'rgba(255,255,255,.22)';
+    ctx.fillRect(ROAD.x-2,0,4,ROAD.h);
+    ctx.fillRect(ROAD.x+ROAD.w-2,0,4,ROAD.h);
+
+    ctx.fillStyle = 'rgba(255,255,255,.15)';
+    for(let i=1;i<LANES;i++){
+      const lx = ROAD.x + LANE_W*i;
+      ctx.fillRect(lx-2,0,4,ROAD.h);
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    for(const l of roadLines){
+      ctx.fillRect(ROAD.x+ROAD.w/2-5, l.y, 10, 60);
+    }
+
+    const next = rows.find(r=>r.y>-120 && r.y<80);
+    if(next){
+      for(let lane=0; lane<LANES; lane++){
+        const cx = laneCenter(lane);
+        const blocked = next.blocked.indexOf(lane)!==-1;
+        ctx.beginPath();
+        ctx.arc(cx, 70, 8, 0, Math.PI*2);
+        ctx.fillStyle = blocked ? 'rgba(255,43,106,.6)' : 'rgba(0,234,255,.24)';
+        ctx.fill();
+      }
+    }
+
+    for(const r of rows){
+      for(const lane of r.blocked){
+        const x = laneCenter(lane) - player.w/2;
+        const y = r.y;
+
+        ctx.save();
+        ctx.shadowBlur = 16;
+        ctx.shadowColor = 'rgba(255,43,106,.7)';
+        ctx.fillStyle = '#ff2b6a';
+        ctx.fillRect(x, y, player.w, player.h);
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#10121c';
+        ctx.fillRect(x+7, y+18, player.w-14, 18);
+
+        ctx.fillStyle = 'rgba(255,190,210,.9)';
+        ctx.fillRect(x+6, y+player.h-10, 10, 6);
+        ctx.fillRect(x+player.w-16, y+player.h-10, 10, 6);
+        ctx.restore();
+      }
+    }
+
+    const px = player.x - player.w/2;
+    ctx.save();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = 'rgba(0,234,255,.7)';
+    ctx.fillStyle = '#00eaff';
+    ctx.fillRect(px, player.y, player.w, player.h);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#0f111a';
+    ctx.fillRect(px+7, player.y+18, player.w-14, 18);
+
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fillRect(px+6, player.y+4, 10, 6);
+    ctx.fillRect(px+player.w-16, player.y+4, 10, 6);
+    ctx.restore();
+
+    for(const p of particles){
+      const alpha = p.life/0.9;
+      ctx.fillStyle = 'rgba(255,60,110,'+ (alpha<0?0:alpha) +')';
+      ctx.fillRect(p.x, p.y, 4, 4);
+    }
+
+    if(state!=='playing'){
+      ctx.fillStyle = 'rgba(0,0,0,.18)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+  }
+
+  (function init(){
+    for(let i=0;i<8;i++) roadLines.push({y:i*90});
+    renderModes();
+    bestEl.textContent = getBest(mode);
+  })();
+
+})();
+</script>
+</body>
+</html>
